@@ -117,6 +117,61 @@
   .tap{position:fixed;inset:0;z-index:5;cursor:pointer}
   .tap:active{background:rgba(242,237,228,.02)}
 
+  /* ── 开场入场动效 ── */
+  .intro{
+    position:fixed;inset:0;z-index:20;background:var(--ink);
+    display:flex;align-items:center;justify-content:center;
+    opacity:1;transition:opacity .9s cubic-bezier(.4,0,.2,1);
+  }
+  .intro.done{opacity:0;pointer-events:none}
+  .intro-inner{text-align:center;padding:0 28px}
+
+  .line1{
+    font-size:14px;letter-spacing:.42em;text-indent:.42em;color:var(--paper-dim);font-weight:400;
+    opacity:0;transform:translateY(14px);filter:blur(6px);
+    animation:introUp .95s cubic-bezier(.22,1,.36,1) .25s forwards;
+  }
+  .line2{
+    margin-top:26px;
+    font-size:clamp(36px,11.5vw,60px);font-weight:700;letter-spacing:.1em;text-indent:.1em;
+    color:var(--paper);line-height:1.24;
+    opacity:0;transform:translateY(26px) scale(.94);filter:blur(10px);
+    animation:introBig 1.15s cubic-bezier(.22,1,.36,1) .7s forwards;
+  }
+  .intro-en{
+    margin-top:20px;font-size:11.5px;letter-spacing:.32em;text-indent:.32em;
+    color:var(--gold);font-weight:300;font-style:italic;
+    opacity:0;transform:translateY(10px);
+    animation:introUp .9s cubic-bezier(.22,1,.36,1) 1.45s forwards;
+  }
+  .intro-rule{
+    width:0;height:1px;margin:30px auto 0;background:var(--gold);
+    box-shadow:0 0 14px var(--gold-dim);
+    animation:introRule 1s cubic-bezier(.22,1,.36,1) 1.75s forwards;
+  }
+  /* 收尾：整块向内收缩 + 模糊消散，衔接正文淡入 */
+  .intro.leaving .intro-inner{
+    animation:introOut .72s cubic-bezier(.55,0,.55,1) forwards;
+  }
+
+  @keyframes introUp{
+    to{opacity:1;transform:none;filter:blur(0)}
+  }
+  @keyframes introBig{
+    to{opacity:1;transform:none;filter:blur(0)}
+  }
+  @keyframes introRule{
+    from{width:0} to{width:56px}
+  }
+  @keyframes introOut{
+    to{opacity:0;transform:scale(1.06);filter:blur(9px)}
+  }
+  /* 尊重系统「减少动态效果」偏好 */
+  @media (prefers-reduced-motion: reduce){
+    .line1,.line2,.intro-en,.intro-rule{animation-duration:.01s !important;animation-delay:0s !important}
+    .intro.leaving .intro-inner{animation-duration:.01s !important}
+  }
+
   @media (max-width:380px){ .cn{font-size:21px} footer{padding-bottom:22px} }
 </style>
 </head>
@@ -127,7 +182,6 @@
 <div class="stage">
   <header>
     <div class="book">傲 慢 与 偏 见</div>
-    <div class="author">JANE AUSTEN · 简·奥斯汀 / 著</div>
     <div class="hairline"></div>
   </header>
 
@@ -149,6 +203,16 @@
 </div>
 
 <div class="tap" id="tap"></div>
+
+<!-- 开场入场动效：大字报书 → 消散 → 进入正文 -->
+<div class="intro" id="intro">
+  <div class="intro-inner">
+    <div class="line1">今天我们读的书是</div>
+    <div class="line2">傲 慢 与 偏 见</div>
+    <div class="intro-en">Pride and Prejudice</div>
+    <div class="intro-rule"></div>
+  </div>
+</div>
 
 <div class="ask" id="ask">
   <h2>哪一句戳到了你？<br>你是<em>达西</em>，还是<em>伊丽莎白</em>？</h2>
@@ -236,23 +300,42 @@ function goPrev(){
 
 show(0);
 
-/* 交互：点按 / 滑动 / 键盘 */
-tap.addEventListener('click', goNext);
+/* ── 开场动效：播完自动消散进入正文；也可点击提前跳过 ── */
+const intro = document.getElementById('intro');
+let introClosed = false;
+function closeIntro(){
+  if(introClosed) return;
+  introClosed = true;
+  intro.classList.add('leaving');
+  setTimeout(()=>{ intro.classList.add('done'); }, 620);
+}
+const introTimer = setTimeout(closeIntro, 2650);   /* 大字停留后自动进入 */
+intro.addEventListener('click', ()=>{ clearTimeout(introTimer); closeIntro(); });
+requestAnimationFrame(()=>{ startAuto(); });       /* 开场即开始计时，但正文此时被遮罩挡住 */
+
+/* 交互：点按 / 滑动 / 键盘（开场动效期间屏蔽翻页） */
+tap.addEventListener('click', ()=>{ if(!introClosed) return; goNext(); });
 document.addEventListener('keydown', e=>{
+  if(!introClosed){ if(e.key==='ArrowRight'||e.key===' '||e.key==='Enter') closeIntro(); return; }
   if(e.key==='ArrowRight'||e.key===' '||e.key==='Enter') goNext();
   if(e.key==='ArrowLeft') goPrev();
 });
 let sy=0;
 document.addEventListener('touchstart', e=>{ sy=e.touches[0].clientY; }, {passive:true});
 document.addEventListener('touchend', e=>{
+  if(!introClosed) return;
   const dy = (e.changedTouches[0].clientY - sy);
   if(Math.abs(dy) > 46){ dy<0 ? goNext() : goPrev(); }
 }, {passive:true});
 
-/* 自动翻页：8s/句，模拟原片卡点节奏 */
-let timer = setInterval(()=>{ if(!ask.classList.contains('on')) goNext(); }, 8000);
-document.addEventListener('click', ()=>{ clearInterval(timer); }, {once:true});
-document.addEventListener('touchstart', ()=>{ clearInterval(timer); }, {once:true});
+/* 自动翻页：8s/句，模拟原片卡点节奏。开场动效期间不计时，避免正文被跳过 */
+let timer = null;
+function startAuto(){
+  if(timer) return;
+  timer = setInterval(()=>{ if(!ask.classList.contains('on')) goNext(); }, 8000);
+}
+document.addEventListener('click', ()=>{ if(introClosed){ clearInterval(timer); timer=null; } }, {once:true});
+document.addEventListener('touchstart', ()=>{ if(introClosed){ clearInterval(timer); timer=null; } }, {once:true});
 </script>
 </body>
 </html>
