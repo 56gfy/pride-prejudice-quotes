@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>傲慢与偏见 · 为什么我们爱不起来</title>
+<style>
+  :root{
+    --ink:#0a1220;        /* 深夜蓝黑，取自原片底色 */
+    --ink-2:#111c2e;
+    --paper:#f2ede4;      /* 米白，原片文字色 */
+    --paper-dim:#f2ede4b3;
+    --gold:#c8a45c;       /* 暖金点缀，书封描边色 */
+    --gold-dim:#c8a45c66;
+    --rule:rgba(242,237,228,.12);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    background:var(--ink);
+    color:var(--paper);
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,sans-serif;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  /* 电影感光晕层：呼应原片的自然光/丁达尔效果 */
+  .glow{
+    position:fixed;inset:0;pointer-events:none;z-index:0;
+    background:
+      radial-gradient(120% 70% at 78% 12%, rgba(200,164,92,.16) 0%, transparent 55%),
+      radial-gradient(90% 60% at 15% 88%, rgba(58,92,140,.28) 0%, transparent 60%);
+  }
+  .grain{
+    position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.35;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
+  }
+
+  .stage{position:relative;z-index:2;height:100%;display:flex;flex-direction:column}
+
+  /* ── 顶部：书名 + 署名（原片恒定元素） ── */
+  header{
+    flex:0 0 auto;padding:26px 24px 0;text-align:center;
+  }
+  .book{
+    font-size:15px;font-weight:700;letter-spacing:.44em;text-indent:.44em;
+    color:var(--paper);
+  }
+  .author{
+    margin-top:9px;font-size:11px;letter-spacing:.22em;color:var(--paper-dim);font-weight:400;
+  }
+  .hairline{
+    width:34px;height:1px;margin:16px auto 0;background:var(--gold);
+    box-shadow:0 0 12px var(--gold-dim);
+  }
+
+  /* ── 主体：金句 ── */
+  main{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;padding:0 30px;position:relative}
+
+  .quote{position:absolute;inset:0;padding:0 30px;display:flex;flex-direction:column;justify-content:center;text-align:center;
+    opacity:0;transform:translateY(16px);filter:blur(5px);
+    transition:opacity .75s cubic-bezier(.4,0,.2,1),transform .75s cubic-bezier(.4,0,.2,1),filter .75s cubic-bezier(.4,0,.2,1);
+    pointer-events:none;
+  }
+  .quote.on{opacity:1;transform:none;filter:none;pointer-events:auto}
+
+  .cn{
+    font-size:clamp(23px,6.6vw,34px);
+    font-weight:700;line-height:1.62;letter-spacing:.03em;
+    text-wrap:balance;
+  }
+  /* 「不是…而是…」句式：后半句点金，呼应原片情绪落点 */
+  .cn .hi{color:var(--gold);font-style:normal;font-weight:700}
+  .en{
+    margin-top:20px;font-size:12.5px;line-height:1.75;letter-spacing:.06em;
+    color:var(--paper-dim);font-weight:300;font-style:italic;
+    max-width:28em;margin-left:auto;margin-right:auto;
+  }
+  .mark{
+    margin-top:26px;font-size:10.5px;letter-spacing:.3em;color:var(--gold-dim);
+  }
+
+  /* 开场页 */
+  .opening .cn{font-size:clamp(26px,7.4vw,38px);line-height:1.5}
+  .opening .sub{margin-top:22px;font-size:12.5px;letter-spacing:.16em;color:var(--paper-dim)}
+
+  /* ── 底部：进度 + 控制 ── */
+  footer{flex:0 0 auto;padding:0 30px 30px}
+  .bar{height:2px;background:var(--rule);border-radius:2px;overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--gold-dim),var(--gold));transition:width .7s cubic-bezier(.4,0,.2,1)}
+  .ctl{
+    margin-top:16px;display:flex;align-items:center;justify-content:space-between;
+    font-size:11px;letter-spacing:.14em;color:var(--paper-dim);
+  }
+  .dot{display:flex;gap:7px;align-items:center}
+  .dot b{width:5px;height:5px;border-radius:50%;background:var(--rule);transition:all .4s}
+  .dot b.on{background:var(--gold);transform:scale(1.5)}
+  .hint{opacity:.55}
+
+  /* 结尾互动钩子 */
+  .ask{
+    position:fixed;inset:0;z-index:9;background:rgba(10,18,32,.97);backdrop-filter:blur(10px);
+    display:flex;flex-direction:column;justify-content:center;padding:0 34px;text-align:center;
+    opacity:0;pointer-events:none;transition:opacity .8s
+  }
+  .ask.on{opacity:1;pointer-events:auto}
+  .ask h2{font-size:clamp(21px,5.6vw,28px);font-weight:700;line-height:1.7;text-wrap:balance}
+  .ask h2 em{color:var(--gold);font-style:normal}
+  .ask .tag{margin-top:26px;display:flex;flex-wrap:wrap;gap:9px;justify-content:center}
+  .ask .tag span{
+    font-size:11.5px;padding:8px 15px;border:1px solid var(--rule);border-radius:999px;
+    color:var(--paper-dim);letter-spacing:.05em;
+  }
+  .ask .foot{margin-top:34px;font-size:11px;letter-spacing:.24em;color:var(--gold-dim)}
+  .again{margin-top:30px;font-size:12px;letter-spacing:.2em;color:var(--paper-dim);text-decoration:none}
+
+  /* 点按区 */
+  .tap{position:fixed;inset:0;z-index:5;cursor:pointer}
+  .tap:active{background:rgba(242,237,228,.02)}
+
+  @media (max-width:380px){ .cn{font-size:21px} footer{padding-bottom:22px} }
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<div class="grain"></div>
+
+<div class="stage">
+  <header>
+    <div class="book">傲 慢 与 偏 见</div>
+    <div class="author">JANE AUSTEN · 简·奥斯汀 / 著</div>
+    <div class="hairline"></div>
+  </header>
+
+  <main id="main">
+    <div class="quote opening" data-i="-1">
+      <div class="cn">偏见让你无法接受我<br>傲慢让我无法爱你</div>
+      <div class="sub">读《傲慢与偏见》· 为什么我们爱不起来</div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="bar"><i id="bar"></i></div>
+    <div class="ctl">
+      <span id="idx">01 / 13</span>
+      <span class="dot" id="dots"></span>
+      <span class="hint">精选 10 句 · 轻触翻页</span>
+    </div>
+  </footer>
+</div>
+
+<div class="tap" id="tap"></div>
+
+<div class="ask" id="ask">
+  <h2>哪一句戳到了你？<br>你是<em>达西</em>，还是<em>伊丽莎白</em>？</h2>
+  <div class="tag">
+    <span>#傲慢与偏见</span><span>#好书分享</span><span>#情感共鸣</span>
+    <span>#文字的力量</span><span>#文学</span>
+  </div>
+  <div class="foot">13 句读完，愿你既有骄傲，也有被爱的运气</div>
+  <a class="again" href="javascript:location.reload()">重新读一遍 ↻</a>
+</div>
+
+<script>
+/* 金句数据：中文主句 / 英文对照 / 点金片段（对应原片的情绪落点） */
+const QUOTES = [
+  {cn:'爱不是控制与索取，<br>而是长久的<i class="hi">尊重与接纳</i>。',
+   en:'Love is not control or possession, but enduring respect and acceptance.'},
+  {cn:'真正的喜欢从不是<i class="hi">一见心动</i>，<br>而是褪去傲慢后的<i class="hi">笃定与包容</i>。',
+   en:'True affection is not love at first sight, but certainty and grace after pride falls away.'},
+  {cn:'偏见是人心的围墙，<br><i class="hi">爱意是唯一的破壁良方</i>。',
+   en:'Prejudice is the wall of the human heart; love is the only thing that breaks it.'},
+  {cn:'爱不是肉体的相互碰撞，<br>而是<i class="hi">灵魂之间的互相吸引</i>。',
+   en:'Love is not a collision of bodies, but an attraction between souls.'},
+  {cn:'新鲜感注定会褪色，<br>但<i class="hi">责任与教养</i>不会。',
+   en:'Novelty is destined to fade. Duty and breeding are not.'},
+  {cn:'顶级的新鲜感，<br>是和<i class="hi">旧的人</i>去探索新鲜事物，',
+   en:'The finest novelty is exploring new things with the same old person,'},
+  {cn:'而不是和<i class="hi">新的人</i><br>去重复旧的故事。',
+   en:'not repeating old stories with someone new.'},
+  {cn:'好的爱情始于心动，<br><i class="hi">终于坚守</i>。',
+   en:'Good love begins with a heartbeat and ends in steadfastness.'},
+  {cn:'放下主观的成见，<br>看见彼此<i class="hi">真实的模样</i>。',
+   en:'Lay down your assumptions, and see each other as you truly are.'},
+  {cn:'在理解与克制里，<br>把感情<i class="hi">稳稳地走下去</i>。',
+   en:'In understanding and restraint, walk the road steadily.'},
+];
+
+const main = document.getElementById('main');
+const bar  = document.getElementById('bar');
+const idxEl= document.getElementById('idx');
+const dots = document.getElementById('dots');
+const ask  = document.getElementById('ask');
+const tap  = document.getElementById('tap');
+
+/* 构建 DOM */
+const opening = main.querySelector('.opening');
+let nodes = [opening];
+QUOTES.forEach((q,i)=>{
+  const d = document.createElement('div');
+  d.className = 'quote';
+  d.innerHTML = `<div class="cn">${q.cn}</div>
+                 <div class="en">${q.en}</div>
+                 <div class="mark">—— 简·奥斯汀《傲慢与偏见》</div>`;
+  main.appendChild(d); nodes.push(d);
+});
+
+/* 进度点 */
+nodes.forEach(()=>dots.appendChild(document.createElement('b')));
+const dotEls = [...dots.children];
+
+let cur = 0;
+function show(n){
+  nodes.forEach((el,i)=>el.classList.toggle('on', i===n));
+  dotEls.forEach((el,i)=>el.classList.toggle('on', i===n));
+  const total = QUOTES.length;
+  if(n===0){ idxEl.textContent = '01 / '+total; bar.style.width = '7.7%'; }
+  else { idxEl.textContent = String(n).padStart(2,'0')+' / '+total;
+         bar.style.width = (n/total*100).toFixed(1)+'%'; }
+}
+function next(){
+  if(cur < nodes.length-1){ cur++; show(cur); }
+  else {
+    /* 读完后 → 互动钩子，制造评论增流 */
+    if(cur === nodes.length-1){ cur++; ask.classList.add('on'); }
+  }
+}
+/* 修正：结束时行为 */
+function goNext(){
+  if(cur < nodes.length-1){ cur++; show(cur); }
+  else if(cur === nodes.length-1){ ask.classList.add('on'); }
+}
+function goPrev(){
+  if(cur >= nodes.length-1 && ask.classList.contains('on')){ ask.classList.remove('on'); return; }
+  if(cur>0){ cur--; show(cur); }
+}
+
+show(0);
+
+/* 交互：点按 / 滑动 / 键盘 */
+tap.addEventListener('click', goNext);
+document.addEventListener('keydown', e=>{
+  if(e.key==='ArrowRight'||e.key===' '||e.key==='Enter') goNext();
+  if(e.key==='ArrowLeft') goPrev();
+});
+let sy=0;
+document.addEventListener('touchstart', e=>{ sy=e.touches[0].clientY; }, {passive:true});
+document.addEventListener('touchend', e=>{
+  const dy = (e.changedTouches[0].clientY - sy);
+  if(Math.abs(dy) > 46){ dy<0 ? goNext() : goPrev(); }
+}, {passive:true});
+
+/* 自动翻页：8s/句，模拟原片卡点节奏 */
+let timer = setInterval(()=>{ if(!ask.classList.contains('on')) goNext(); }, 8000);
+document.addEventListener('click', ()=>{ clearInterval(timer); }, {once:true});
+document.addEventListener('touchstart', ()=>{ clearInterval(timer); }, {once:true});
+</script>
+</body>
+</html>
